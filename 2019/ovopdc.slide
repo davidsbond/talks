@@ -21,6 +21,7 @@ A simple, interpreted programming language, written in Go.
         add(5, 6)
       }
 
+      // Print the results
       print(results[0], results[1], results[2])
     } catch(err) {
       print(err)
@@ -33,9 +34,12 @@ A simple, interpreted programming language, written in Go.
 
 .link https://github.com/davidsbond/zap
 
-* What it's made of:
+: Language works more or less exactly as JavaScript does
+: Supports, async/await, try/catch, control flow, loops, functions as first class values, comments, builtins etc.
 
-Nearly all interpreted programming languages boil down to three layers:
+* What is an interpreter?
+
+Nearly all interpreters boil down to three layers:
 
 - The lexer
 - The parser
