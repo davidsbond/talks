@@ -1,0 +1,46 @@
+I wrote my own programming language and you can too!
+
+26 Mar 2019
+Tags: interpreter, golang, ast, lexer, parser
+
+David Bond
+Software Engineer, CRM
+david.bond@ovoenergy.com
+http://davidsbond.github.io/
+@DaviiBond
+
+* What I made:
+
+A simple, interpreted programming language, written in Go.
+
+  func main() {
+    try {
+      results := await {
+        add(1, 2)
+        add(3, 4)
+        add(5, 6)
+      }
+
+      print(results[0], results[1], results[2])
+    } catch(err) {
+      print(err)
+    }
+  }
+
+  async func add(x, y) {
+    return x + y
+  }
+
+.link https://github.com/davidsbond/zap
+
+* What it's made of:
+
+Nearly all interpreted programming languages boil down to three layers:
+
+- The lexer
+- The parser
+- The evaluator
+
+: An interpreted language is a type of programming language for which most of its implementations execute instructions directly and freely, without previously compiling a program into machine-language instructions. 
+: The interpreter executes the program directly, translating each statement into a sequence of one or more subroutines, and then into another language (often machine code).
+: Popular example is JavaScript, with different interpreter implementations V8 (Chrome, C++) and SpiderMonkey (Mozilla, C/C++)
