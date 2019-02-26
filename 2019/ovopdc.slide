@@ -48,3 +48,42 @@ Nearly all interpreters boil down to three layers:
 : An interpreted language is a type of programming language for which most of its implementations execute instructions directly and freely, without previously compiling a program into machine-language instructions. 
 : The interpreter executes the program directly, translating each statement into a sequence of one or more subroutines, and then into another language (often machine code).
 : Popular example is JavaScript, with different interpreter implementations V8 (Chrome, C++) and SpiderMonkey (Mozilla, C/C++)
+
+* Implementing a lexer
+
+Main responsibilities of a lexer:
+
+- Read source code character by character
+- Convert characters and collections of characters into tokens
+- Understand what to do with whitespace, delimiters etc.
+
+: The lexer (lexical analyzer or tokenizer) is a program that breaks down the input source code into a sequence of lexemes. 
+: It reads the input source code character by character, recognizes the lexemes and outputs a sequence of tokens describing the lexemes.
+: A lexeme is a single identifiable sequence of characters (keywords: func, var, for), literals (numbers, strings etc.), identifiers, operators, or punctuation characters ({, (, and .).
+
+* 
+
+What this looks like, is a huge `switch` statement
+
+  char := string(l.currentChar)
+
+  switch char {
+    case '(':
+      // Tokens are stored in constants
+      tok = l.newToken(token.LPAREN, char)
+    case ')':
+      tok = l.newToken(token.RPAREN, char)
+    case ',':
+      tok = l.newToken(token.COMMA, char)
+    case '=':
+      // Check if we're assigning (=) or comparing (==)
+      if l.peekChar() == '=' {
+        l.readChar()
+        tok = l.newToken(token.EQ, char)
+      } else {
+        tok = l.newToken(token.ASSIGN, char)
+      }
+    // And so on for all possible tokens we want to use...
+  }
+
+.link https://github.com/davidsbond/zap/blob/master/lexer/lexer.go source
