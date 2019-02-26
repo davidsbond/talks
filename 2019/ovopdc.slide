@@ -54,12 +54,15 @@ Nearly all interpreters boil down to three layers:
 Main responsibilities of a lexer:
 
 - Read source code character by character
-- Convert characters and collections of characters into tokens
-- Understand what to do with whitespace, delimiters etc.
+- Convert characters into lexemes
+- Convert lexemes into tokens
 
 : The lexer (lexical analyzer or tokenizer) is a program that breaks down the input source code into a sequence of lexemes. 
 : It reads the input source code character by character, recognizes the lexemes and outputs a sequence of tokens describing the lexemes.
 : A lexeme is a single identifiable sequence of characters (keywords: func, var, for), literals (numbers, strings etc.), identifiers, operators, or punctuation characters ({, (, and .).
+: A token is an object describing the lexeme. 
+: A token has a type (e.g. Keyword, Identifier, Number, or Operator) and a value (the actual characters of the described lexeme). 
+: A token can also contain other information such as the line and column numbers where the lexeme was encountered in the source code.
 
 * 
 
@@ -87,3 +90,5 @@ What this looks like, is a huge `switch` statement
   }
 
 .link https://github.com/davidsbond/zap/blob/master/lexer/lexer.go source
+
+: Talk about all source code being samples, links to source files will be provided for each snipped
