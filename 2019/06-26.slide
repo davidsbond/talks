@@ -49,13 +49,14 @@ Nearly all interpreters boil down to three layers:
 : The interpreter executes the program directly, translating each statement into a sequence of one or more subroutines, and then into another language (often machine code).
 : Popular example is JavaScript, with different interpreter implementations V8 (Chrome, C++) and SpiderMonkey (Mozilla, C/C++)
 
-* Implementing a lexer
+* Implementing the lexer
 
 Main responsibilities of a lexer:
 
 - Read source code character by character
 - Convert characters into lexemes
 - Convert lexemes into tokens
+- Returning errors when invalid characters are used
 
 : The lexer (lexical analyzer or tokenizer) is a program that breaks down the input source code into a sequence of lexemes. 
 : It reads the input source code character by character, recognizes the lexemes and outputs a sequence of tokens describing the lexemes.
@@ -71,24 +72,82 @@ What this looks like, is a huge `switch` statement
   char := string(l.currentChar)
 
   switch char {
-    case '(':
-      // Tokens are stored in constants
-      tok = l.newToken(token.LPAREN, char)
-    case ')':
-      tok = l.newToken(token.RPAREN, char)
-    case ',':
-      tok = l.newToken(token.COMMA, char)
-    case '=':
-      // Check if we're assigning (=) or comparing (==)
-      if l.peekChar() == '=' {
-        l.readChar()
-        tok = l.newToken(token.EQ, char)
-      } else {
-        tok = l.newToken(token.ASSIGN, char)
-      }
+  case '(':
+    // Tokens are stored in constants
+    tok = l.newToken(token.LPAREN, char)
+  case ')':
+    tok = l.newToken(token.RPAREN, char)
+  case ',':
+    tok = l.newToken(token.COMMA, char)
+  case '=':
+    // Check if we're assigning (=) or comparing (==)
+    if l.peekChar() == '=' {
+      l.readChar()
+      tok = l.newToken(token.EQ, char)
+    } else {
+      tok = l.newToken(token.ASSIGN, char)
+    }
     // And so on for all possible tokens we want to use...
   }
 
 .link https://github.com/davidsbond/zap/blob/master/lexer/lexer.go source
 
-: Talk about all source code being samples, links to source files will be provided for each snipped
+: Talk about all source code being samples, links to source files will be provided for each snippet
+
+* Implementing the parser
+
+The parser is responsible for:
+
+- Converting the tokens into an abstract syntax tree
+- Understanding operator precedence
+- Understanding prefixes (-, +), infixes (>, <) & postfixes (++, --)
+- Returning errors when presented with invalid syntax
+
+: An AST is a tree representation of the abstract syntactic structure of source code written in a programming language. 
+: Each node of the tree denotes a construct occurring in the source code (if statement, for loop etc.)
+: The syntax is "abstract" in the sense that it does not represent every detail appearing in the real syntax, but rather just the structural, content-related details.
+: Operator precedence is just BIDMAS for logical/binary operators
+: Infix, Postfix and Prefix notations are three different but equivalent ways of writing expressions.
+
+* 
+
+Turns out, this also looks like a huge `switch` statement
+
+  switch p.currentToken.Type() {
+  case token.USE:
+    return p.parseUseStatement()
+  case token.VAR:
+    return p.parseVarStatement()
+  case token.RETURN:
+    return p.parseReturnStatement()
+  case token.ASYNC:
+    return p.parseAsyncLiteral()
+  case token.FUNCTION:
+    return p.parseFunctionLiteral()
+    // And so on for all possible tokens we want to use...
+  }
+
+.link https://github.com/davidsbond/zap/blob/master/parser/parser.go source
+
+* 
+
+Where methods iterate through tokens until the expression is complete:
+
+  stmt := ast.NewVarStatement(p.currentToken, p.peekTokenIs(token.VARASSIGN))
+  stmt.SetName(p.currentToken)
+
+  // If we don't have a '=' or ':=' character here, something is amiss!
+  if !p.expectPeek(token.VARASSIGN) && !p.expectPeek(token.ASSIGN) {
+    return nil
+  }
+
+  p.nextToken()
+
+  // The next token should be some sort of value we assign to a variable, parse
+  // it with the lowest precedence
+  value := p.parseExpression(LOWEST)
+  stmt.SetValue(value)
+
+
+.link https://github.com/davidsbond/zap/blob/master/parser/var_expression.go source
+
