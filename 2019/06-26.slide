@@ -129,6 +129,9 @@ Turns out, this also looks like a huge `switch` statement
 
 .link https://github.com/davidsbond/zap/blob/master/parser/parser.go source
 
+: Literals are where we define something like a function, async function etc.
+: Statements are declarations like variable assignments, importing other files etc.
+
 * 
 
 Where methods iterate through tokens until the expression is complete:
@@ -151,3 +154,139 @@ Where methods iterate through tokens until the expression is complete:
 
 .link https://github.com/davidsbond/zap/blob/master/parser/var_expression.go source
 
+: This source code shows how a variable declaration/assignment is parsed from tokens.
+: We use 'expectPeek' to check the next function is what we expect, this is used for simple validation
+: We use 'nextToken' to move to the next token
+: Basically everything is an expression that can be parsed.
+
+* 
+
+Then create data structures representing the branching logic of the source code
+
+  type (
+    // The IfExpression type represents an if statement within the syntax
+    // tree. An if statement consists of a condition, consequence and an optional
+    // alternative.
+    //
+    // if (something) {			<-- Condition
+    // 	return true			 <-- Consequence
+    // } else {
+    //	return false		     <-- Alternative
+    // }
+    //
+    IfExpression struct {
+      token       token.Token
+      condition   Expression
+      consequence *BlockStatement
+      alternative *BlockStatement
+    }
+  )
+
+.link https://github.com/davidsbond/zap/blob/master/ast/if_expression.go source
+
+* Implementing the evaluator
+
+The evaluator is responsible for:
+
+- Traversing the abstract syntax tree
+- Converting literals into objects in memory
+- Managing scope
+- Executing statements and storing their result in memory, passing them back up the AST for further evaluation
+- Handling built-in function calls (`length()`, `env()` etc.)
+
+* 
+
+If you didn't already guess, it's another huge switch statement
+
+  switch node := node.(type) {
+  // We get another AST when we have a 'use' import.
+  case *ast.AST:
+    for _, stmt := range node.Statements() {
+      if err, ok := eval(stmt, scope).(*object.Error); ok {
+        return err
+      }
+    }
+
+    return NULL
+  // Use recursion to evaluate the underlying expression when
+  // evaluating an expression statement
+  case *ast.ExpressionStatement:
+    return eval(node.Expression(), scope)
+
+  // When evaluating a number literal, create a new object
+  // with the node value
+  case *ast.NumberLiteral:
+    return object.NewNumber(node.Value())
+  // And so on for every type of node we support in the AST
+
+.link https://github.com/davidsbond/zap/blob/master/evaluator/evaluator.go source
+
+* 
+
+Where we go through the nodes in the AST and do appropriate evaluation for each type
+
+  func evalIfExpression(exp *ast.IfExpression, scope *object.Scope) object.Object {
+    cond := eval(exp.GetCondition(), scope)
+
+    if cond == TRUE {
+      return eval(exp.GetConsequence(), scope)
+    }
+
+    if cond == FALSE && exp.GetAlternative() != nil {
+      return eval(exp.GetAlternative(), scope)
+    }
+
+    return NULL
+  }
+
+.link https://github.com/davidsbond/zap/blob/master/evaluator/if_statement.go source
+
+* What's in an object?
+
+- All in-memory data structures are implementations of the `Object` interface
+- Using an interface it's easy to add new native types, allowed me to add `Character` and `String` as different types
+- We can provide a builtin function to allow type comparison, similar to `typeOf`
+
+* 
+
+In total the native types are:
+
+- Boolean
+- Character
+- Error
+- Function
+- Number
+- Map
+- String
+- Builtin
+
+* Builtins are identifiers that correspond to functions in the interpreter. 
+
+  func Type(node ast.Node, args ...object.Object) object.Object {
+    if len(args) != 1 {
+      return object.NewError("Function 'type' only takes 1 argument", node.Token())
+    }
+
+    arg := args[0]
+
+    return object.NewString(string(arg.Type()))
+  }
+
+.link https://github.com/davidsbond/zap/blob/master/builtin/type.go source
+
+* 
+
+They can be called as regular methods as they exist in the global scope
+
+  // Sample for testing the built-in type function
+  func main() {
+      str := type("a test string")
+      map := type({ "key": "a map" })
+      num := type(1.337)
+      chr := type('a')
+  }
+
+.link https://github.com/davidsbond/zap/blob/master/samples/type.zap source
+
+: For example, a method to compare types of objects.
+: The method is not part of the standard library, but a call to the underlying interpreter
