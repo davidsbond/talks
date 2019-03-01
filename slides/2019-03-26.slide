@@ -35,7 +35,7 @@ A simple, interpreted programming language, written in Go.
 .link https://github.com/davidsbond/zap
 
 : Language works more or less exactly as JavaScript does
-: Supports, async/await, try/catch, control flow, loops, functions as first class values, comments, builtins etc.
+: Supports, async/await, try/catch, control flow, loops, functions as first class values, comments, built-in functions etc.
 
 * What is an interpreter?
 
@@ -193,6 +193,7 @@ The evaluator is responsible for:
 - Managing scope
 - Executing statements and storing their result in memory, passing them back up the AST for further evaluation
 - Handling built-in function calls (`length()`, `env()` etc.)
+- Understanding how types are used together
 
 * 
 
@@ -241,26 +242,46 @@ Where we go through the nodes in the AST and do appropriate evaluation for each 
 
 .link https://github.com/davidsbond/zap/blob/master/evaluator/if_statement.go source
 
+* 
+
+- In scenarios where we have operations on different types, we need to explicitly define the behavior.
+- When I use an index accessor on a `string`, I expect an instance of `character` back
+
+  str, _ := strObj.(*object.String)
+  idx, _ := index.(*object.Number)
+
+  // Get the index and value of the string
+  strVal := str.Value()
+  indxVal := int(idx.Value())
+  indxChar := strVal[indxVal]
+
+  // Create a new character instance
+  return object.NewCharacter(indxChar)
+
+.link https://github.com/davidsbond/zap/blob/master/evaluator/index_expression.go source
+
 * What's in an object?
 
 - All in-memory data structures are implementations of the `Object` interface
 - Using an interface it's easy to add new native types, allowed me to add `Character` and `String` as different types
-- We can provide a builtin function to allow type comparison, similar to `typeOf`
+- We can provide a built-in function to allow type comparison, similar to `typeOf`
 
 * 
 
 In total the native types are:
 
-- Boolean
-- Character
-- Error
-- Function
-- Number
-- Map
+- Boolean 
 - String
+- Character 
+- Number
+- Error 
+- Function
+- Map 
+- Array 
 - Builtin
+- Null
 
-* What are builtins?
+* What are built-in functions?
 
 - Identifiers that correspond to functions in the interpreter. 
 
@@ -293,10 +314,10 @@ They can be called as regular methods as they exist in the global scope
 : For example, a method to compare types of objects.
 : The method is not part of the standard library, but a call to the underlying interpreter
 
-* How does the evaulator manage scope?
+* How does the evaluator manage scope?
 
 - The scope is just a map containing all objects available to an expression.
-- These objects can be variables, methods, builtins etc.
+- These objects can be variables, methods, built-in functions etc.
 - We check the most specific scope first before checking the parent.
 
   // Create a child scope for this method call that contains
