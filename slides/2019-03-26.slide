@@ -260,7 +260,9 @@ In total the native types are:
 - String
 - Builtin
 
-* Builtins are identifiers that correspond to functions in the interpreter. 
+* What are builtins?
+
+- Identifiers that correspond to functions in the interpreter. 
 
   func Type(node ast.Node, args ...object.Object) object.Object {
     if len(args) != 1 {
@@ -290,3 +292,28 @@ They can be called as regular methods as they exist in the global scope
 
 : For example, a method to compare types of objects.
 : The method is not part of the standard library, but a call to the underlying interpreter
+
+* How does the evaulator manage scope?
+
+- The scope is just a map containing all objects available to an expression.
+- These objects can be variables, methods, builtins etc.
+- We check the most specific scope first before checking the parent.
+
+  // Create a child scope for this method call that contains
+  // the evaluated arguments. This way, once we finish calling
+  // the method, the evaluated arguments do not exist in the parent
+  // scope and can be disposed by the GC
+  innerScope := scope.NewInnerScope()
+  
+  for i, param := range function.GetParameters() {
+    innerScope.Set(param.Name(), args[i])
+  }
+
+  //...
+  // Then evaluate the method body using the new scope
+  result = eval(function.GetBody(), innerScope)
+
+.link https://github.com/davidsbond/zap/blob/master/evaluator/call_expression.go source
+
+: Using this scope model means you can reuse names of objects from the parent scope without overriding them
+: Literally just a map
