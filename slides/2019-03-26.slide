@@ -75,15 +75,15 @@ Main responsibilities of a lexer:
 - Returning errors when invalid characters are used
 
 : The lexer (lexical analyzer or tokenizer) is a program that breaks down the input source code into a sequence of lexemes. 
-: It reads the input source code character by character, recognizes the lexemes and outputs a sequence of tokens describing the lexemes.
 : A lexeme is a single identifiable sequence of characters (keywords: func, var, for), literals (numbers, strings etc.), identifiers, operators, or punctuation characters ({, (, and .).
+: It reads the input source code character by character, recognizes the lexemes and outputs a sequence of tokens describing the lexemes.
 : A token is an object describing the lexeme. 
 : A token has a type (e.g. Keyword, Identifier, Number, or Operator) and a value (the actual characters of the described lexeme). 
 : A token can also contain other information such as the line and column numbers where the lexeme was encountered in the source code.
 
 * 
 
-What this looks like, is a huge `switch` statement
+In practice, this can be done using a huge `switch` statement
 
   char := string(l.currentChar)
 
@@ -110,11 +110,16 @@ What this looks like, is a huge `switch` statement
 
 : Talk about all source code being samples, links to source files will be provided for each snippet
 
+* Lessons from implementing a lexer
+
+- Use a sane delimiter to start with like a semicolon. Starting with whitespace added extra complexity further along the line
+- Use constants for everything, that way you can change/use your grammar easily
+
 * Implementing the parser
 
 The parser is responsible for:
 
-- Converting the tokens into an abstract syntax tree
+- Iterating over tokens and converting them into the abstract syntax tree
 - Understanding operator precedence
 - Understanding prefixes (-, +), infixes (>, <) & postfixes (++, --)
 - Returning errors when presented with invalid syntax
@@ -127,7 +132,7 @@ The parser is responsible for:
 
 * 
 
-Turns out, this also looks like a huge `switch` statement
+Turns out, this can also be implemented using a huge `switch` statement
 
   switch p.currentToken.Type() {
   case token.USE:
@@ -152,11 +157,17 @@ Turns out, this also looks like a huge `switch` statement
 
 Where methods iterate through tokens until the expression is complete:
 
-  stmt := ast.NewVarStatement(p.currentToken, p.peekTokenIs(token.VARASSIGN))
+  stmt := ast.NewVarStatement(p.currentToken)
+
+  // Move from the 'var' keyword to the identifier
+  p.nextToken()
+
   stmt.SetName(p.currentToken)
 
-  // If we don't have a '=' or ':=' character here, something is amiss!
-  if !p.expectPeek(token.VARASSIGN) && !p.expectPeek(token.ASSIGN) {
+  // 'expectPeek' is a helper method that checks the value of the next token and
+  // adds a parsing error if it's not what we expect. We expect a '=' character
+  // at this point.
+  if !p.expectPeek(token.ASSIGN) {
     return nil
   }
 
@@ -199,6 +210,12 @@ Then create data structures representing the branching logic of the source code
   )
 
 .link https://github.com/davidsbond/zap/blob/master/ast/if_expression.go source
+
+* Lessons from implementing a parser
+
+- Start with a small, sensible feature set to achieve basic programming tasks, I shot for the stars a bit and ended up using a lot of time on syntactic sugar
+- Learn when/where to iterate over tokens, one `p.nextToken` in the wrong place and your entire AST falls apart
+- Give yourself the ability to print the AST once parsed. A visual representation is way easier to use and debug.
 
 * Implementing the evaluator
 
