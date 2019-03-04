@@ -48,7 +48,7 @@ A simple, interpreted programming language, written in Go.
   fmt.Println([]byte("日abc")) // [230 151 165 97 98 99]
   fmt.Println([]rune("日abc")) // [26085 97 98 99]
 
-: The rune type is an alias for int32, and is used to emphasize than an integer represents a code point.
+: The rune type is an alias for int32, and is used to emphasize that an integer represents a code point.
 : For example, in the string "日abc" the character 日 (code point 26085) is encoded using three bytes, while the ASCII characters a, b and c (code points 97, 98 and 99) only use one
 : Saves additional logic when iterating over characters. Allows expanding valid syntax with UTF-8 symbols.
 : This kind of functionality is very useful if you want to include mathematical language (like Julia)
