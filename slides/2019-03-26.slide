@@ -4,8 +4,8 @@ I wrote my own programming language and you can too!
 Tags: interpreter, golang, ast, lexer, parser
 
 David Bond
-Software Engineer, CRM
-david.bond@ovoenergy.com
+Software Engineer
+davidsbond93@gmail.com
 http://davidsbond.github.io/
 @DaviiBond
 
@@ -36,6 +36,22 @@ A simple, interpreted programming language, written in Go.
 
 : Language works more or less exactly as JavaScript does
 : Supports, async/await, try/catch, control flow, loops, functions as first class values, comments, built-in functions etc.
+
+* Why use go?
+
+- Take advantage of the existing garbage collector
+- Simple concurrency model allows you to easily add concurrency to the language (`chan` native and `sync` package)
+- Streaming interfaces (`io.Reader` etc.) allow for efficient parsing of source code
+- Interpreter compiles to a single binary and is multi-platform out of the box
+- Native type `rune` for representing unicode code points
+
+  fmt.Println([]byte("日abc")) // [230 151 165 97 98 99]
+  fmt.Println([]rune("日abc")) // [26085 97 98 99]
+
+: The rune type is an alias for int32, and is used to emphasize than an integer represents a code point.
+: For example, in the string "日abc" the character 日 (code point 26085) is encoded using three bytes, while the ASCII characters a, b and c (code points 97, 98 and 99) only use one
+: Saves additional logic when iterating over characters. Allows expanding valid syntax with UTF-8 symbols.
+: This kind of functionality is very useful if you want to include mathematical language (like Julia)
 
 * What is an interpreter?
 
