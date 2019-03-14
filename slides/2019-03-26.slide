@@ -13,15 +13,20 @@ http://davidsbond.github.io/
 
 A simple, interpreted programming language, written in Go.
 
-  func main() {
-    var result = add(1, 2)
+  func fib(n) {
+    if (n == 1) {
+      return n
+    }
 
-    return result
+    if (n < 1) {
+      return n
+    }
+
+    return fib(n - 1) + fib(n - 2)
   }
 
-  async func add(x, y) {
-    return x + y
-  }
+  fib(9)
+  // 34
 
 .link https://github.com/davidsbond/language
 
@@ -349,6 +354,32 @@ The parser is responsible for:
 - Operators are written after their operands (++, --)
 - Evaluated left-to-right
 
+* Parsing pre/post/in-fix
+
+    prefix, ok := p.prefixParsers[p.currentToken.Type]
+
+    if !ok {
+      p.error("%s is not supported as a prefix", p.currentToken.Literal)
+      return nil
+    }
+
+    leftExp := prefix()
+
+    for precedence < p.peekPrecedence() {
+      infix := p.infixParsers[p.peekToken.Type]
+
+      if infix == nil {
+        return leftExp
+      }
+
+      p.nextToken()
+      leftExp = infix(leftExp)
+    }
+
+    if postfix, ok := p.postfixParsers[p.peekToken.Type]; ok {
+      leftExp = postfix(leftExp)
+    }
+
 * Lessons from implementing a parser
 
 - Start with a small, sensible feature set  
@@ -360,8 +391,8 @@ The parser is responsible for:
 The evaluator is responsible for:
 
 - Creating & comparing objects
-- Reading the AST
 - Managing scope
+- Reading the AST
 - Built-in methods
 
 * Objects
@@ -396,6 +427,31 @@ The evaluator is responsible for:
   func (str *String) Type() Type {
     return TypeString
   }
+
+* Managing scope
+
+  type (
+    // The Scope type contains all accessible objects for a certain node.
+    Scope struct {
+      objects map[string]Object
+      parent  *Scope
+    }
+  )
+
+  // NewChildScope creates a new scope using the called scope as the
+  // parent.
+  func (s *Scope) NewChildScope() *Scope {
+    scp := NewScope()
+    scp.parent = s
+
+    return scp
+  }
+
+: The scope is just a map containing all objects available to an expression.
+: Scopes are linked, parent to child. For example, a function call will use a child scope from the calling scope
+: Provides functionality like variables exclusive to functions (parameters) or loops.
+: Using this scope model means you can reuse names of objects from the parent scope without overriding them
+: Literally just a map
 
 * Reading the AST
 
@@ -438,59 +494,3 @@ The evaluator is responsible for:
 
     return result
   }
-
-* 
-  func stringIndexExpression(str *object.String, index object.Object) object.Object {
-    num, err := getNumberFromObject(index)
-
-    if err != nil {
-      return object.Error(err.Error())
-    }
-
-    idx := math.Floor(num.Value)
-    if idx > float64(len(str.Value)) || idx < 0 {
-      return object.Error("index out of range")
-    }
-
-    return &object.Character{Value: rune(str.Value[int(idx)])}
-  }
-
-.link https://github.com/davidsbond/language/blob/master/evaluator/index_expression.go source
-
-: In scenarios where we have operations on different types, we need to explicitly define the behavior.
-: When I use an index accessor on a `string`, I expect an instance of `character` back
-
-* 
-
-  func Len(args ...object.Object) object.Object {
-    if len(args) > 1 || len(args) == 0 {
-      return object.Error("built-in 'len' function only takes one argument")
-    }
-
-    switch obj := args[0].(type) {
-    default:
-      return object.Error("built-in 'len' does not support type %s", obj.Type())
-    case *object.Array:
-      return &object.Number{Value: float64(len(obj.Elements))}
-    case *object.String:
-      return &object.Number{Value: float64(len(obj.Value))}
-    case *object.Constant:
-      return Len(obj.Value)
-    case *object.Atomic:
-      return Len(obj.Value())
-    }
-  }
-
-.link https://github.com/davidsbond/language/blob/master/builtin/len.go source
-
-: Built-in functions behave the same as objects, when their identifiers are evaluated the underlying logic is executed and an object is returned.
-: The method is not part of the standard library, but a call to the underlying interpreter
-
-* How does the evaluator manage scope?
-
-- The scope is just a map containing all objects available to an expression.
-- Scopes are linked, parent to child. For example, a function call will use a child scope from the calling scope
-- Provides functionality like variables exclusive to functions (parameters) or loops.
-
-: Using this scope model means you can reuse names of objects from the parent scope without overriding them
-: Literally just a map
