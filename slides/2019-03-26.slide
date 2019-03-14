@@ -72,33 +72,111 @@ Main responsibilities of a lexer:
 : A token has a type (e.g. Keyword, Identifier, Number, or Operator) and a value (the actual characters of the described lexeme). 
 : A token can also contain other information such as the line and column numbers where the lexeme was encountered in the source code.
 
-* 
+* The lexer struct 
 
-In practice, this can be done using a huge `switch` statement
+  // The Lexer type breaks down the input source code into a sequence of lexemes and produces
+  // tokens.
+  Lexer struct {
+    // The input stream
+    input   *bufio.Reader
 
-  // NextToken converts the next set of lexemes in the source code to a token. Returns an error
-  // for invalid characters or if reading the source code fails.
+    // The current character under inspection
+    current rune
+
+    // The current line & column number
+    column  int
+    line    int
+  }
+
+* Reading characters
+
+  func (l *Lexer) readRune() (err error) {
+    // Get the next character from the input stream
+    ch, _, err := l.input.ReadRune()
+
+    // If we've hit the end of the file, set the character
+    // to zero
+    if err == io.EOF {
+      ch = 0
+    }
+
+    // Reset column and increment line counts if we've hit
+    // a newline
+    if ch == '\n' {
+      l.column = 1
+      l.line++
+    }
+
+    l.column++
+    l.current = ch
+
+    return
+  }
+
+* Inspecting future characters
+
+  func (l *Lexer) peekRune() (ch rune, err error) {
+    // Get the next input from the stream
+    ch, _, err = l.input.ReadRune()
+
+    if err != nil {
+      return
+    }
+
+    // If all was successful, unread the last
+    // character to reset the stream position
+    err = l.input.UnreadRune()
+    return
+  }
+
+* Defining tokens
+
+  const (
+    // VAR is the token type used when declaring a mutable
+    // variable
+    VAR = "var"
+
+    // ASSIGN is the token type used for assignment statements
+    ASSIGN = "="
+
+    // EQUALS is the token type used for equality statements.
+    EQUALS = "=="
+
+    // NOTEQ is the token type used for not equals operators
+    NOTEQ = "!="
+
+    // BANG is the token type used for not expressions.
+    BANG = "!"
+
+    // STRING is the token type used for opening/closing literal strings.
+    STRING = `"`
+  )
+
+* Turning lexemes into tokens
+
   func (l *Lexer) NextToken() (tok *token.Token, err error) {
     l.skipWhitespace()
 
     switch l.current {
+    case '<':
+      tok = token.New(token.LT, token.LT, l.line, l.column)
+    case '>':
+      tok = token.New(token.GT, token.GT, l.line, l.column)
+    case '*':
+      tok = token.New(token.ASTERISK, token.ASTERISK, l.line, l.column)
+    case '%':
+      tok = token.New(token.MOD, token.MOD, l.line, l.column)
+    case '(':
+      tok = token.New(token.LPAREN, token.LPAREN, l.line, l.column)
+    case ')':
+      tok = token.New(token.RPAREN, token.RPAREN, l.line, l.column)
+    case ',':
+      tok = token.New(token.COMMA, token.COMMA, l.line, l.column)
     case '{':
       tok = token.New(token.LBRACE, token.LBRACE, l.line, l.column)
-    case '}':
-      tok = token.New(token.RBRACE, token.RBRACE, l.line, l.column)
-    case '[':
-      tok = token.New(token.LBRACKET, token.LBRACKET, l.line, l.column)
-    case ']':
-      tok = token.New(token.RBRACKET, token.RBRACKET, l.line, l.column)
-    case '√':
-      tok = token.New(token.SQRT, token.SQRT, l.line, l.column)
-    // And so on, forever...
+    // Add more tokens here
     }
   }
-
-.link https://github.com/davidsbond/language/blob/master/lexer/lexer.go source
-
-: Talk about all source code being samples, links to source files will be provided for each snippet
 
 * Lessons from implementing a lexer
 
