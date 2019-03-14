@@ -30,19 +30,12 @@ A simple, interpreted programming language, written in Go.
 
 * Why use go?
 
-- Take advantage of the existing garbage collector
-- Simple concurrency model allows you to easily add concurrency to the language (`chan` native and `sync` package)
-- Streaming interfaces (`io.Reader` etc.) allow for efficient parsing of source code
-- Interpreter compiles to a single binary and is multi-platform out of the box
-- Native type `rune` for representing unicode code points
+- Garbage collection
+- Simple concurrency model
+- File streaming
+- The `rune` type
 
-  fmt.Println([]byte("日abc")) // [230 151 165 97 98 99]
-  fmt.Println([]rune("日abc")) // [26085 97 98 99]
-
-: The rune type is an alias for int32, and is used to emphasize that an integer represents a code point.
-: For example, in the string "日abc" the character 日 (code point 26085) is encoded using three bytes, while the ASCII characters a, b and c (code points 97, 98 and 99) only use one
-: Saves additional logic when iterating over characters. Allows expanding valid syntax with UTF-8 symbols.
-: This kind of functionality is very useful if you want to include mathematical language (like Julia)
+: Ability to use channels
 
 * What is an interpreter?
 
@@ -60,10 +53,10 @@ Nearly all interpreters boil down to three layers:
 
 Main responsibilities of a lexer:
 
-- Read source code character by character
+- Read characters from source
 - Convert characters into lexemes
 - Convert lexemes into tokens
-- Returning errors when invalid characters are used
+- Reporting errors
 
 : The lexer (lexical analyzer or tokenizer) is a program that breaks down the input source code into a sequence of lexemes. 
 : A lexeme is a single identifiable sequence of characters (keywords: func, var, for), literals (numbers, strings etc.), identifiers, operators, or punctuation characters ({, (, and .).
@@ -178,19 +171,35 @@ Main responsibilities of a lexer:
     }
   }
 
+* Using runes
+
+  bytes := []byte("日abc") 
+  runes := []rune("日abc")
+
+  fmt.Println(bytes) // [230 151 165 97 98 99]
+  fmt.Println(runes) // [26085 97 98 99]
+
+: The rune type is an alias for int32, and is used to emphasize that an integer represents a code point.
+: For example, in the string "日abc" the character 日 (code point 26085) is encoded using three bytes, while the ASCII characters a, b and c (code points 97, 98 and 99) only use one
+: Saves additional logic when iterating over characters. Allows expanding valid syntax with UTF-8 symbols.
+: This kind of functionality is very useful if you want to include mathematical language (like Julia)
+
 * Lessons from implementing a lexer
 
-- Don't try to do anything fancy with newlines/whitespace. You're better off just ignoring them
-- Use constants for everything, that way you can change/use your grammar easily
+- Avoid tokens for whitespace & newlines
+- Use constants
+
+: Using newlines/whitespace as tokens generates a lot of boilerplate to handle/ignore them elsewhere
+: Central variables for token identifiers makes changes simple
 
 * Implementing the parser
 
 The parser is responsible for:
 
-- Iterating over tokens and converting them into the abstract syntax tree
-- Understanding operator precedence
-- Understanding prefixes (-, +), infixes (>, <) & postfixes (++, --)
-- Returning errors when presented with invalid syntax
+- Building the AST
+- Operator precedence
+- Understanding prefixes, infixes & postfixes
+- Reporting errors
 
 : An AST is a tree representation of the abstract syntactic structure of source code written in a programming language. 
 : Each node of the tree denotes a construct occurring in the source code (if statement, for loop etc.)
@@ -198,34 +207,84 @@ The parser is responsible for:
 : Operator precedence is just BIDMAS for logical/binary operators
 : Infix, Postfix and Prefix notations are three different but equivalent ways of writing expressions.
 
-* 
-  func (p *Parser) parseStatement() ast.Node {
-    switch p.currentToken.Type {
-    case token.VAR:
-      return p.parseVarStatement()
-    case token.CONST:
-      return p.parseConstStatement()
-    case token.ATOMIC:
-      return p.parseAtomicStatement()
-    case token.RETURN:
-      return p.parseReturnStatement()
-    case token.FUNCTION:
-      return p.parseFunctionLiteral()
-    case token.ASYNC:
-      return p.parseAsyncStatement()
-    case token.AWAIT:
-      return p.parseAwaitStatement()
-    default:
-      return p.parseExpressionStatement()
+* The parser struct
+
+  type (
+    // The Parser type is responsible for iterating over tokens provided by the lexer
+    // and converting them into the abstract syntax tree
+    Parser struct {
+      // The lexer, for reading tokens
+      lexer        *lexer.Lexer
+
+      // The current and next tokens
+      currentToken *token.Token
+      peekToken    *token.Token
+
+      // Maps for storing the parsing functions to be used for different
+      // tokens
+      prefixParsers  map[token.Type]prefixParseFn
+      infixParsers   map[token.Type]infixParseFn
+      postfixParsers map[token.Type]postfixParseFn
+
+      // Any errors we found
+      errors []error
+    }
+  )
+
+* Iterating over tokens
+
+  func (p *Parser) nextToken() {
+    var err error
+
+    p.currentToken = p.peekToken
+    p.peekToken, err = p.lexer.NextToken()
+
+    if err != nil && err != io.EOF {
+      p.errors = append(p.errors, err)
     }
   }
 
-.link https://github.com/davidsbond/language/blob/master/parser/parser.go source
+* The parser entrypoint
 
-: Literals are where we define something like a function, async function etc.
-: Statements are declarations like variable assignments, importing other files etc.
+  func (p *Parser) Parse() (*ast.AST, []error) {
+    ast := &ast.AST{}
 
-* 
+    // While we're not at the end of the file, parse
+    // statements and append them to the AST.
+    for !p.curTokenIs(token.EOF) {
+      stmt := p.parseStatement()
+
+      if stmt != nil {
+        ast.Nodes = append(ast.Nodes, stmt)
+      }
+
+      p.nextToken()
+    }
+
+    return ast, p.errors
+  }
+
+* Defining types that represent source code
+
+  type (
+    // The IfExpression type represents an if statement in the source code. It consists
+    // of a condition, consequence and optional consequence.
+    // For example:
+    // if (a == 0) { <-- Condition
+    //   return -1   <-- Consequence
+    // } else {
+    //   return a    <-- Alternative
+    // }
+    IfExpression struct {
+      Token       *token.Token
+      Condition   Node
+      Consequence *BlockStatement
+      Alternative *BlockStatement
+    }
+  )
+
+* Parsing a variable declaration 
+
   func (p *Parser) parseVarStatement() *ast.VarStatement {
     stmt := &ast.VarStatement{Token: p.currentToken}
 
@@ -248,38 +307,11 @@ The parser is responsible for:
     return stmt
   }
 
-.link https://github.com/davidsbond/language/blob/master/parser/var_statement.go source
-
-: This source code shows how a variable declaration/assignment is parsed from tokens.
-: We use 'expectPeek' to check the next function is what we expect, this is used for simple validation
-: We use 'nextToken' to move to the next token
-: Basically everything is an expression that can be parsed.
-
-* 
-  type (
-    // The IfExpression type represents an if statement in the source code. It consists
-    // of a condition, consequence and optional consequence.
-    // For example:
-    // if (a == 0) { <-- Condition
-    //   return -1   <-- Consequence
-    // } else {
-    //   return a    <-- Alternative
-    // }
-    IfExpression struct {
-      Token       *token.Token
-      Condition   Node
-      Consequence *BlockStatement
-      Alternative *BlockStatement
-    }
-  )
-
-.link https://github.com/davidsbond/language/blob/master/ast/if_expression.go source
-
 * Lessons from implementing a parser
 
-- Start with a small, sensible feature set to achieve basic programming tasks, I shot for the stars a bit and ended up using a lot of time on syntactic sugar
-- Learn when/where to iterate over tokens, one `p.nextToken` in the wrong place and your entire AST falls apart
-- Give yourself the ability to print the AST once parsed. A visual representation is way easier to use and debug.
+- Start with a small, sensible feature set  
+- Be mindful when iterating over tokens
+- Make debugging easier for yourself
 
 * Implementing the evaluator
 
