@@ -307,6 +307,48 @@ The parser is responsible for:
     return stmt
   }
 
+* Prefix expressions
+
+- Operators are written before their operands (!, -)
+- Evaluated left-to-right
+
+* Infix expressions
+
+- Operators are written in-between their operands (+, *, ...)
+- Need a defined operator precedence
+- Initially evaluated left-to-right
+
+* Defining precedence
+
+  const (
+    _ int = iota
+    LOWEST
+    EQUALS
+    LESSGREATER
+    SUM
+    PRODUCT
+    PREFIX
+    CALL
+    INDEX
+  )
+
+  var (
+    precedence = map[token.Type]int{
+      token.COMMENT:  LOWEST,
+      token.EQUALS:   EQUALS,
+      token.PLUS:     SUM,
+      token.LT:       LESSGREATER,
+      token.ASTERISK: PRODUCT,
+      token.LPAREN:   CALL,
+      token.ASSIGN:   INDEX,
+    }
+  )
+
+* Postfix expressions
+
+- Operators are written after their operands (++, --)
+- Evaluated left-to-right
+
 * Lessons from implementing a parser
 
 - Start with a small, sensible feature set  
@@ -317,41 +359,67 @@ The parser is responsible for:
 
 The evaluator is responsible for:
 
-- Traversing the abstract syntax tree
-- Converting literals into objects in memory
+- Creating & comparing objects
+- Reading the AST
 - Managing scope
-- Executing statements and storing their result in memory, passing them back up the AST for further evaluation
-- Handling built-in function calls (`length()`, `env()` etc.)
-- Understanding how types are used together
+- Built-in methods
 
-* 
-  func Evaluate(node ast.Node, scope *object.Scope) object.Object {
-    switch node := node.(type) {
-    case *ast.AST:
-      return evalAST(node, scope)
-    case *ast.ExpressionStatement:
-      return Evaluate(node.Expression, scope)
-    case *ast.InfixExpression:
-      return infixExpression(node, scope)
-    case *ast.VarStatement:
-      return varStatement(node, scope)
-    case *ast.ConstStatement:
-      return constStatement(node, scope)
-    case *ast.AtomicStatement:
-      return atomicStatement(node, scope)
-    case *ast.BlockStatement:
-      return blockStatement(node, scope)
-    case *ast.CallExpression:
-      return callExpression(node, scope)
-    case *ast.PrefixExpression:
-      return prefixExpression(node, scope)
-    // And so on, for all other AST nodes
+* Objects
+
+  type (
+    // The Object interface defines behavior for all objects.
+    Object interface {
+      Type() Type
+      String() string
+      Clone() Object
     }
+
+    // The Type type contains an object's type.
+    Type string
+  )
+
+* Defining types of objects
+
+  const (
+    // TypeString is the type for a string value.
+    TypeString = "String"
+  )
+
+  type (
+    // The String type represents a string value in memory.
+    String struct {
+      Value string
+    }
+  )
+
+  // Type returns the type of the object.
+  func (str *String) Type() Type {
+    return TypeString
   }
 
-.link https://github.com/davidsbond/language/blob/master/evaluator/evaluator.go source
+* Reading the AST
 
-* 
+  func evalAST(ast *ast.AST, scope *object.Scope) object.Object {
+    var result object.Object
+
+    for _, node := range ast.Nodes {
+      result = Evaluate(node, scope)
+
+      if result != nil && result.Type() == object.TypeError {
+        break
+      }
+
+      switch result := result.(type) {
+      case *object.ReturnValue:
+        return result.Value
+      }
+    }
+
+    return result
+  }
+
+* Evaluating expressions
+
   func ifExpression(node *ast.IfExpression, scope *object.Scope) object.Object {
     var result object.Object
     condition := Evaluate(node.Condition, scope)
@@ -370,8 +438,6 @@ The evaluator is responsible for:
 
     return result
   }
-
-.link https://github.com/davidsbond/language/blob/master/evaluator/if_expression.go source
 
 * 
   func stringIndexExpression(str *object.String, index object.Object) object.Object {
@@ -393,12 +459,6 @@ The evaluator is responsible for:
 
 : In scenarios where we have operations on different types, we need to explicitly define the behavior.
 : When I use an index accessor on a `string`, I expect an instance of `character` back
-
-* What's in an object?
-
-- All values are objects
-- Objects have a type from the built-in typeset
-- This includes functions, both user-defined and built-in
 
 * 
 
