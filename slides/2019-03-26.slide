@@ -14,28 +14,19 @@ http://davidsbond.github.io/
 A simple, interpreted programming language, written in Go.
 
   func main() {
-    try {
-      results := await {
-        add(1, 2)
-        add(3, 4)
-        add(5, 6)
-      }
+    var result = add(1, 2)
 
-      // Print the results
-      print(results[0], results[1], results[2])
-    } catch(err) {
-      print(err)
-    }
+    return result
   }
 
   async func add(x, y) {
     return x + y
   }
 
-.link https://github.com/davidsbond/zap
+.link https://github.com/davidsbond/language
 
 : Language works more or less exactly as JavaScript does
-: Supports, async/await, try/catch, control flow, loops, functions as first class values, comments, built-in functions etc.
+: Supports, async/await, control flow, functions as first class values, comments, built-in functions etc.
 
 * Why use go?
 
@@ -85,34 +76,33 @@ Main responsibilities of a lexer:
 
 In practice, this can be done using a huge `switch` statement
 
-  char := string(l.currentChar)
+  // NextToken converts the next set of lexemes in the source code to a token. Returns an error
+  // for invalid characters or if reading the source code fails.
+  func (l *Lexer) NextToken() (tok *token.Token, err error) {
+    l.skipWhitespace()
 
-  switch char {
-  case '(':
-    // Tokens are stored in constants
-    tok = l.newToken(token.LPAREN, char)
-  case ')':
-    tok = l.newToken(token.RPAREN, char)
-  case ',':
-    tok = l.newToken(token.COMMA, char)
-  case '=':
-    // Check if we're assigning (=) or comparing (==)
-    if l.peekChar() == '=' {
-      l.readChar()
-      tok = l.newToken(token.EQ, char)
-    } else {
-      tok = l.newToken(token.ASSIGN, char)
+    switch l.current {
+    case '{':
+      tok = token.New(token.LBRACE, token.LBRACE, l.line, l.column)
+    case '}':
+      tok = token.New(token.RBRACE, token.RBRACE, l.line, l.column)
+    case '[':
+      tok = token.New(token.LBRACKET, token.LBRACKET, l.line, l.column)
+    case ']':
+      tok = token.New(token.RBRACKET, token.RBRACKET, l.line, l.column)
+    case '√':
+      tok = token.New(token.SQRT, token.SQRT, l.line, l.column)
+    // And so on, forever...
     }
-    // And so on for all possible tokens we want to use...
   }
 
-.link https://github.com/davidsbond/zap/blob/master/lexer/lexer.go source
+.link https://github.com/davidsbond/language/blob/master/lexer/lexer.go source
 
 : Talk about all source code being samples, links to source files will be provided for each snippet
 
 * Lessons from implementing a lexer
 
-- Use a sane delimiter to start with like a semicolon. Starting with whitespace added extra complexity further along the line
+- Don't try to do anything fancy with newlines/whitespace. You're better off just ignoring them
 - Use constants for everything, that way you can change/use your grammar easily
 
 * Implementing the parser
@@ -131,55 +121,56 @@ The parser is responsible for:
 : Infix, Postfix and Prefix notations are three different but equivalent ways of writing expressions.
 
 * 
-
-Turns out, this can also be implemented using a huge `switch` statement
-
-  switch p.currentToken.Type() {
-  case token.USE:
-    return p.parseUseStatement()
-  case token.VAR:
-    return p.parseVarStatement()
-  case token.RETURN:
-    return p.parseReturnStatement()
-  case token.ASYNC:
-    return p.parseAsyncLiteral()
-  case token.FUNCTION:
-    return p.parseFunctionLiteral()
-    // And so on for all possible tokens we want to use...
+  func (p *Parser) parseStatement() ast.Node {
+    switch p.currentToken.Type {
+    case token.VAR:
+      return p.parseVarStatement()
+    case token.CONST:
+      return p.parseConstStatement()
+    case token.ATOMIC:
+      return p.parseAtomicStatement()
+    case token.RETURN:
+      return p.parseReturnStatement()
+    case token.FUNCTION:
+      return p.parseFunctionLiteral()
+    case token.ASYNC:
+      return p.parseAsyncStatement()
+    case token.AWAIT:
+      return p.parseAwaitStatement()
+    default:
+      return p.parseExpressionStatement()
+    }
   }
 
-.link https://github.com/davidsbond/zap/blob/master/parser/parser.go source
+.link https://github.com/davidsbond/language/blob/master/parser/parser.go source
 
 : Literals are where we define something like a function, async function etc.
 : Statements are declarations like variable assignments, importing other files etc.
 
 * 
+  func (p *Parser) parseVarStatement() *ast.VarStatement {
+    stmt := &ast.VarStatement{Token: p.currentToken}
 
-Where methods iterate through tokens until the expression is complete:
+    if !p.expectPeek(token.IDENT) {
+      return nil
+    }
 
-  stmt := ast.NewVarStatement(p.currentToken)
+    stmt.Name = &ast.Identifier{
+      Token: p.currentToken,
+      Value: p.currentToken.Literal,
+    }
 
-  // Move from the 'var' keyword to the identifier
-  p.nextToken()
+    if !p.expectPeek(token.ASSIGN) {
+      return nil
+    }
 
-  stmt.SetName(p.currentToken)
+    p.nextToken()
+    stmt.Value = p.parseExpression(LOWEST)
 
-  // 'expectPeek' is a helper method that checks the value of the next token and
-  // adds a parsing error if it's not what we expect. We expect a '=' character
-  // at this point.
-  if !p.expectPeek(token.ASSIGN) {
-    return nil
+    return stmt
   }
 
-  p.nextToken()
-
-  // The next token should be some sort of value we assign to a variable, parse
-  // it with the lowest precedence
-  value := p.parseExpression(LOWEST)
-  stmt.SetValue(value)
-
-
-.link https://github.com/davidsbond/zap/blob/master/parser/var_expression.go source
+.link https://github.com/davidsbond/language/blob/master/parser/var_statement.go source
 
 : This source code shows how a variable declaration/assignment is parsed from tokens.
 : We use 'expectPeek' to check the next function is what we expect, this is used for simple validation
@@ -187,29 +178,24 @@ Where methods iterate through tokens until the expression is complete:
 : Basically everything is an expression that can be parsed.
 
 * 
-
-Then create data structures representing the branching logic of the source code
-
   type (
-    // The IfExpression type represents an if statement within the syntax
-    // tree. An if statement consists of a condition, consequence and an optional
-    // alternative.
-    //
-    // if (something) {			<-- Condition
-    // 	return true			 <-- Consequence
+    // The IfExpression type represents an if statement in the source code. It consists
+    // of a condition, consequence and optional consequence.
+    // For example:
+    // if (a == 0) { <-- Condition
+    //   return -1   <-- Consequence
     // } else {
-    //	return false		     <-- Alternative
+    //   return a    <-- Alternative
     // }
-    //
     IfExpression struct {
-      token       token.Token
-      condition   Expression
-      consequence *BlockStatement
-      alternative *BlockStatement
+      Token       *token.Token
+      Condition   Node
+      Consequence *BlockStatement
+      Alternative *BlockStatement
     }
   )
 
-.link https://github.com/davidsbond/zap/blob/master/ast/if_expression.go source
+.link https://github.com/davidsbond/language/blob/master/ast/if_expression.go source
 
 * Lessons from implementing a parser
 
@@ -229,145 +215,112 @@ The evaluator is responsible for:
 - Understanding how types are used together
 
 * 
-
-If you didn't already guess, it's another huge switch statement
-
-  switch node := node.(type) {
-  // We get another AST when we have a 'use' import.
-  case *ast.AST:
-    for _, stmt := range node.Statements() {
-      if err, ok := eval(stmt, scope).(*object.Error); ok {
-        return err
-      }
+  func Evaluate(node ast.Node, scope *object.Scope) object.Object {
+    switch node := node.(type) {
+    case *ast.AST:
+      return evalAST(node, scope)
+    case *ast.ExpressionStatement:
+      return Evaluate(node.Expression, scope)
+    case *ast.InfixExpression:
+      return infixExpression(node, scope)
+    case *ast.VarStatement:
+      return varStatement(node, scope)
+    case *ast.ConstStatement:
+      return constStatement(node, scope)
+    case *ast.AtomicStatement:
+      return atomicStatement(node, scope)
+    case *ast.BlockStatement:
+      return blockStatement(node, scope)
+    case *ast.CallExpression:
+      return callExpression(node, scope)
+    case *ast.PrefixExpression:
+      return prefixExpression(node, scope)
+    // And so on, for all other AST nodes
     }
-
-    return NULL
-  // Use recursion to evaluate the underlying expression when
-  // evaluating an expression statement
-  case *ast.ExpressionStatement:
-    return eval(node.Expression(), scope)
-
-  // When evaluating a number literal, create a new object
-  // with the node value
-  case *ast.NumberLiteral:
-    return object.NewNumber(node.Value())
-  // And so on for every type of node we support in the AST
-
-.link https://github.com/davidsbond/zap/blob/master/evaluator/evaluator.go source
-
-* 
-
-Where we go through the nodes in the AST and do appropriate evaluation for each type
-
-  func evalIfExpression(exp *ast.IfExpression, scope *object.Scope) object.Object {
-    cond := eval(exp.GetCondition(), scope)
-
-    if cond == TRUE {
-      return eval(exp.GetConsequence(), scope)
-    }
-
-    if cond == FALSE && exp.GetAlternative() != nil {
-      return eval(exp.GetAlternative(), scope)
-    }
-
-    return NULL
   }
 
-.link https://github.com/davidsbond/zap/blob/master/evaluator/if_statement.go source
+.link https://github.com/davidsbond/language/blob/master/evaluator/evaluator.go source
 
 * 
+  func ifExpression(node *ast.IfExpression, scope *object.Scope) object.Object {
+    var result object.Object
+    condition := Evaluate(node.Condition, scope)
 
-- In scenarios where we have operations on different types, we need to explicitly define the behavior.
-- When I use an index accessor on a `string`, I expect an instance of `character` back
+    if isError(condition) {
+      return condition
+    }
 
-  str, _ := strObj.(*object.String)
-  idx, _ := index.(*object.Number)
+    if condition == TRUE {
+      result = Evaluate(node.Consequence, scope.NewChildScope())
+    }
 
-  // Get the index and value of the string
-  strVal := str.Value()
-  indxVal := int(idx.Value())
-  indxChar := strVal[indxVal]
+    if condition == FALSE && node.Alternative != nil {
+      result = Evaluate(node.Alternative, scope.NewChildScope())
+    }
 
-  // Create a new character instance
-  return object.NewCharacter(indxChar)
+    return result
+  }
 
-.link https://github.com/davidsbond/zap/blob/master/evaluator/index_expression.go source
+.link https://github.com/davidsbond/language/blob/master/evaluator/if_expression.go source
+
+* 
+  func stringIndexExpression(str *object.String, index object.Object) object.Object {
+    num, err := getNumberFromObject(index)
+
+    if err != nil {
+      return object.Error(err.Error())
+    }
+
+    idx := math.Floor(num.Value)
+    if idx > float64(len(str.Value)) || idx < 0 {
+      return object.Error("index out of range")
+    }
+
+    return &object.Character{Value: rune(str.Value[int(idx)])}
+  }
+
+.link https://github.com/davidsbond/language/blob/master/evaluator/index_expression.go source
+
+: In scenarios where we have operations on different types, we need to explicitly define the behavior.
+: When I use an index accessor on a `string`, I expect an instance of `character` back
 
 * What's in an object?
 
-- All in-memory data structures are implementations of the `Object` interface
-- Using an interface it's easy to add new native types, allowed me to add `Character` and `String` as different types
-- We can provide a built-in function to allow type comparison, similar to `typeOf`
+- All values are objects
+- Objects have a type from the built-in typeset
+- This includes functions, both user-defined and built-in
 
 * 
 
-In total the native types are:
-
-- Boolean 
-- String
-- Character 
-- Number
-- Error 
-- Function
-- Map 
-- Array 
-- Builtin
-- Null
-
-* What are built-in functions?
-
-- Identifiers that correspond to functions in the interpreter. 
-
-  func Type(node ast.Node, args ...object.Object) object.Object {
-    if len(args) != 1 {
-      return object.NewError("Function 'type' only takes 1 argument", node.Token())
+  func Len(args ...object.Object) object.Object {
+    if len(args) > 1 || len(args) == 0 {
+      return object.Error("built-in 'len' function only takes one argument")
     }
 
-    arg := args[0]
-
-    return object.NewString(string(arg.Type()))
+    switch obj := args[0].(type) {
+    default:
+      return object.Error("built-in 'len' does not support type %s", obj.Type())
+    case *object.Array:
+      return &object.Number{Value: float64(len(obj.Elements))}
+    case *object.String:
+      return &object.Number{Value: float64(len(obj.Value))}
+    case *object.Constant:
+      return Len(obj.Value)
+    case *object.Atomic:
+      return Len(obj.Value())
+    }
   }
 
-.link https://github.com/davidsbond/zap/blob/master/builtin/type.go source
+.link https://github.com/davidsbond/language/blob/master/builtin/len.go source
 
-* 
-
-They can be called as regular methods as they exist in the global scope
-
-  // Sample for testing the built-in type function
-  func main() {
-      str := type("a test string")
-      map := type({ "key": "a map" })
-      num := type(1.337)
-      chr := type('a')
-  }
-
-.link https://github.com/davidsbond/zap/blob/master/samples/type.zap source
-
-: For example, a method to compare types of objects.
+: Built-in functions behave the same as objects, when their identifiers are evaluated the underlying logic is executed and an object is returned.
 : The method is not part of the standard library, but a call to the underlying interpreter
 
 * How does the evaluator manage scope?
 
 - The scope is just a map containing all objects available to an expression.
-- These objects can be variables, methods, built-in functions etc.
-- We check the most specific scope first before checking the parent.
-
-  // Create a child scope for this method call that contains
-  // the evaluated arguments. This way, once we finish calling
-  // the method, the evaluated arguments do not exist in the parent
-  // scope and can be disposed by the GC
-  innerScope := scope.NewInnerScope()
-  
-  for i, param := range function.GetParameters() {
-    innerScope.Set(param.Name(), args[i])
-  }
-
-  //...
-  // Then evaluate the method body using the new scope
-  result = eval(function.GetBody(), innerScope)
-
-.link https://github.com/davidsbond/zap/blob/master/evaluator/call_expression.go source
+- Scopes are linked, parent to child. For example, a function call will use a child scope from the calling scope
+- Provides functionality like variables exclusive to functions (parameters) or loops.
 
 : Using this scope model means you can reuse names of objects from the parent scope without overriding them
 : Literally just a map
