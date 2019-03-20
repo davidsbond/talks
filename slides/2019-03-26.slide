@@ -66,9 +66,6 @@ Main responsibilities of a lexer:
 : The lexer (lexical analyzer or tokenizer) is a program that breaks down the input source code into a sequence of lexemes. 
 : A lexeme is a single identifiable sequence of characters (keywords: func, var, for), literals (numbers, strings etc.), identifiers, operators, or punctuation characters ({, (, and .).
 : It reads the input source code character by character, recognizes the lexemes and outputs a sequence of tokens describing the lexemes.
-: A token is an object describing the lexeme. 
-: A token has a type (e.g. Keyword, Identifier, Number, or Operator) and a value (the actual characters of the described lexeme). 
-: A token can also contain other information such as the line and column numbers where the lexeme was encountered in the source code.
 
 * The lexer struct 
 
@@ -149,6 +146,10 @@ Main responsibilities of a lexer:
     // STRING is the token type used for opening/closing literal strings.
     STRING = `"`
   )
+
+: A token is an object describing the lexeme. 
+: A token has a type (e.g. Keyword, Identifier, Number, or Operator) and a value (the actual characters of the described lexeme). 
+: A token can also contain other information such as the line and column numbers where the lexeme was encountered in the source code.
 
 * Turning lexemes into tokens
 
@@ -315,7 +316,10 @@ The parser is responsible for:
 * Prefix expressions
 
 - Operators are written before their operands (!, -)
+- Operators act on the nearest value to the right
 - Evaluated left-to-right
+
+: Although Prefix "operators are evaluated left-to-right", they use values to their right, and if these values themselves involve computations then this changes the order that the operators have to be evaluated in
 
 * Infix expressions
 
@@ -494,3 +498,41 @@ The evaluator is responsible for:
 
     return result
   }
+
+* Built-in methods
+
+- Identifiers that call logic in the interpreter when validated
+- `len` (Go), `typeOf` (JS), `compile` (Python) etc...
+
+  type (
+    // The Builtin type represents a built-in function that can be called
+    // from the source code.
+    Builtin func(args ...Object) Object
+  )
+
+* Implementing len()
+
+  // Len returns the length of a given string or array. Or the number of key
+  // in a hash.
+  func Len(args ...object.Object) object.Object {
+    if len(args) > 1 || len(args) == 0 {
+      return object.Error("built-in 'len' function only takes one argument")
+    }
+
+    switch obj := args[0].(type) {
+    default:
+      return object.Error("built-in 'len' does not support type %s", obj.Type())
+    case *object.Array:
+      return &object.Number{Value: float64(len(obj.Elements))}
+    case *object.String:
+      return &object.Number{Value: float64(len(obj.Value))}
+    }
+  }
+
+: Demo on len function
+
+* Built-in values
+
+- Using the `rune` type, we can make arbitrary characters have values
+
+: Demo on infinity/sqrt
