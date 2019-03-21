@@ -548,3 +548,9 @@ The evaluator is responsible for:
 : Demo on infinity/pi
 
 * Wrapping up
+
+Valuable links!
+
+- [[http://www.cs.man.ac.uk/~pjj/cs212/fix.html][Infix, Postfix and Prefix]] - Pete Jinks, University of Manchester
+- [[https://interpreterbook.com/][Writing An Interpreter In Go]] - Thorsten Ball
+- [[https://github.com/mmyoji/go-monkey][go-monkey]] - Code for "Writing An Interpreter in Go"
