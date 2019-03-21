@@ -315,14 +315,21 @@ The parser is responsible for:
 - Operators are written before their operands (!, -)
 - Operators act on the nearest value to the right
 - Evaluated left-to-right
+- Also known as "Polish notation"
 
 : Although Prefix "operators are evaluated left-to-right", they use values to their right, and if these values themselves involve computations then this changes the order that the operators have to be evaluated in
+: The description "Polish" refers to the nationality of logician Jan Łukasiewicz (yan oo ka sheh witz)
+: Invented in 1924
 
 * Infix expressions
 
 - Operators are written in-between their operands (+, *, ...)
 - Need a defined operator precedence
 - Initially evaluated left-to-right
+
+: Notation commonly used in arithmetical and logical formulae and statements
+: Infix notation is more difficult to parse by computers than prefix notation (e.g. + 2 2) or postfix notation (e.g. 2 2 +). 
+: However many programming languages use it due to its familiarity. It is more used in arithmetic, e.g. 5 × 6
 
 * Defining precedence
 
@@ -354,6 +361,12 @@ The parser is responsible for:
 
 - Operators are written after their operands (++, --)
 - Evaluated left-to-right
+- Proposed in 1954 by Arthur Burks, Don Warren, and Jesse Wright
+- Also known as "Reverse Polish notation"
+
+: Was independently reinvented by Friedrich L. Bauer and Edsger W. Dijkstra in the early 1960s to reduce computer memory access and utilize the stack to evaluate expressions.
+: Reverse Polish has been found to lead to faster calculations
+: Because reverse Polish calculators do not need expressions to be parenthesized, fewer operations need to be entered to perform typical calculations
 
 * Parsing pre/post/in-fix
 
