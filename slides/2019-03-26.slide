@@ -310,17 +310,6 @@ The parser is responsible for:
     return stmt
   }
 
-* Prefix expressions
-
-- Operators are written before their operands (!, -)
-- Operators act on the nearest value to the right
-- Evaluated left-to-right
-- Also known as "Polish notation"
-
-: Although Prefix "operators are evaluated left-to-right", they use values to their right, and if these values themselves involve computations then this changes the order that the operators have to be evaluated in
-: The description "Polish" refers to the nationality of logician Jan Łukasiewicz (yan oo ka sheh witz)
-: Invented in 1924
-
 * Infix expressions
 
 - Operators are written in-between their operands (+, *, ...)
@@ -356,6 +345,17 @@ The parser is responsible for:
       token.ASSIGN:   INDEX,
     }
   )
+
+* Prefix expressions
+
+- Operators are written before their operands (!, -)
+- Operators act on the nearest value to the right
+- Evaluated left-to-right
+- Also known as "Polish notation"
+
+: Although Prefix "operators are evaluated left-to-right", they use values to their right, and if these values themselves involve computations then this changes the order that the operators have to be evaluated in
+: The description "Polish" refers to the nationality of logician Jan Łukasiewicz (yan oo ka sheh witz)
+: Invented in 1924
 
 * Postfix expressions
 
