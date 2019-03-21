@@ -535,4 +535,5 @@ The evaluator is responsible for:
 
 - Using the `rune` type, we can make arbitrary characters have values
 
-: Demo on infinity/sqrt
+
+: Demo on infinity/pi
