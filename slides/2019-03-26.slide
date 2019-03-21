@@ -1,24 +1,19 @@
 I wrote my own programming language and you can too!
 
 26 Mar 2019
-Tags: interpreter, golang, ast, lexer, parser
 
 David Bond
 Software Engineer
 davidsbond93@gmail.com
 http://davidsbond.github.io/
-@DaviiBond
+
 
 * What I made:
 
 A simple, interpreted programming language, written in Go.
 
   func fib(n) {
-    if (n == 1) {
-      return n
-    }
-
-    if (n < 1) {
+    if (n <= 1) {
       return n
     }
 
@@ -535,5 +530,6 @@ The evaluator is responsible for:
 
 - Using the `rune` type, we can make arbitrary characters have values
 
-
 : Demo on infinity/pi
+
+* Wrapping up
