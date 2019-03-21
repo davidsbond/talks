@@ -27,6 +27,8 @@ A simple, interpreted programming language, written in Go.
 
 : Language works more or less exactly as JavaScript does
 : Supports, async/await, control flow, functions as first class values, comments, built-in functions etc.
+: Talk about why I did this
+
 
 * Why use go?
 
@@ -36,8 +38,13 @@ A simple, interpreted programming language, written in Go.
 - The `rune` type
 
 : Ability to use channels
+: Don't delve into rune types straight away, just mention they're UTF8
 
-* What is an interpreter?
+* What is an interpreted language?
+
+A type of programming language for which most of its implementations execute instructions directly and freely, without previously compiling a program into machine-language instructions.
+
+* What do interpreters look like?
 
 Nearly all interpreters boil down to three layers:
 
@@ -54,7 +61,7 @@ Nearly all interpreters boil down to three layers:
 Main responsibilities of a lexer:
 
 - Read characters from source
-- Convert characters into lexemes
+- Convert characters into lexemes (`==`, `++` etc.)
 - Convert lexemes into tokens
 - Reporting errors
 
@@ -121,6 +128,24 @@ Main responsibilities of a lexer:
     return
   }
 
+For example, `<=` or `>=`
+
+* The token type
+
+  type (
+    // The Type type is used to differentiate between tokens
+    Type string
+
+    // The Token type represents a collection of lexemes
+    // within the source code.
+    Token struct {
+      Type    Type
+      Literal string
+      Line    int
+      Column  int
+    }
+  )
+
 * Defining tokens
 
   const (
@@ -174,19 +199,6 @@ Main responsibilities of a lexer:
     }
   }
 
-* Using runes
-
-  bytes := []byte("日abc") 
-  runes := []rune("日abc")
-
-  fmt.Println(bytes) // [230 151 165 97 98 99]
-  fmt.Println(runes) // [26085 97 98 99]
-
-: The rune type is an alias for int32, and is used to emphasize that an integer represents a code point.
-: For example, in the string "日abc" the character 日 (code point 26085) is encoded using three bytes, while the ASCII characters a, b and c (code points 97, 98 and 99) only use one
-: Saves additional logic when iterating over characters. Allows expanding valid syntax with UTF-8 symbols.
-: This kind of functionality is very useful if you want to include mathematical language (like Julia)
-
 * Lessons from implementing a lexer
 
 - Avoid tokens for whitespace & newlines
@@ -199,9 +211,9 @@ Main responsibilities of a lexer:
 
 The parser is responsible for:
 
-- Building the AST
+- Building the abstract syntax tree (AST)
 - Operator precedence
-- Understanding prefixes, infixes & postfixes
+- Understanding prefixes (!, -), infixes (+, -) & postfixes (++, --)
 - Reporting errors
 
 : An AST is a tree representation of the abstract syntactic structure of source code written in a programming language. 
@@ -209,6 +221,25 @@ The parser is responsible for:
 : The syntax is "abstract" in the sense that it does not represent every detail appearing in the real syntax, but rather just the structural, content-related details.
 : Operator precedence is just BIDMAS for logical/binary operators
 : Infix, Postfix and Prefix notations are three different but equivalent ways of writing expressions.
+
+* Defining types that represent source code
+
+  type (
+    // The IfExpression type represents an if statement in the source code. It consists
+    // of a condition, consequence and optional consequence.
+    // For example:
+    // if (a == 0) { <-- Condition
+    //   return -1   <-- Consequence
+    // } else {
+    //   return a    <-- Alternative
+    // }
+    IfExpression struct {
+      Token       *token.Token
+      Condition   Node
+      Consequence *BlockStatement
+      Alternative *BlockStatement
+    }
+  )
 
 * The parser struct
 
@@ -267,25 +298,6 @@ The parser is responsible for:
     return ast, p.errors
   }
 
-* Defining types that represent source code
-
-  type (
-    // The IfExpression type represents an if statement in the source code. It consists
-    // of a condition, consequence and optional consequence.
-    // For example:
-    // if (a == 0) { <-- Condition
-    //   return -1   <-- Consequence
-    // } else {
-    //   return a    <-- Alternative
-    // }
-    IfExpression struct {
-      Token       *token.Token
-      Condition   Node
-      Consequence *BlockStatement
-      Alternative *BlockStatement
-    }
-  )
-
 * Parsing a variable declaration 
 
   func (p *Parser) parseVarStatement() *ast.VarStatement {
@@ -313,8 +325,8 @@ The parser is responsible for:
 * Infix expressions
 
 - Operators are written in-between their operands (+, *, ...)
-- Need a defined operator precedence
 - Initially evaluated left-to-right
+- Need a defined operator precedence
 
 : Notation commonly used in arithmetical and logical formulae and statements
 : Infix notation is more difficult to parse by computers than prefix notation (e.g. + 2 2) or postfix notation (e.g. 2 2 +). 
@@ -352,6 +364,7 @@ The parser is responsible for:
 - Operators act on the nearest value to the right
 - Evaluated left-to-right
 - Also known as "Polish notation"
+- Lisp allows prefix expressions like (+ 3 4)
 
 : Although Prefix "operators are evaluated left-to-right", they use values to their right, and if these values themselves involve computations then this changes the order that the operators have to be evaluated in
 : The description "Polish" refers to the nationality of logician Jan Łukasiewicz (yan oo ka sheh witz)
@@ -467,27 +480,6 @@ The evaluator is responsible for:
 : Using this scope model means you can reuse names of objects from the parent scope without overriding them
 : Literally just a map
 
-* Reading the AST
-
-  func evalAST(ast *ast.AST, scope *object.Scope) object.Object {
-    var result object.Object
-
-    for _, node := range ast.Nodes {
-      result = Evaluate(node, scope)
-
-      if result != nil && result.Type() == object.TypeError {
-        break
-      }
-
-      switch result := result.(type) {
-      case *object.ReturnValue:
-        return result.Value
-      }
-    }
-
-    return result
-  }
-
 * Evaluating expressions
 
   func ifExpression(node *ast.IfExpression, scope *object.Scope) object.Object {
@@ -504,6 +496,27 @@ The evaluator is responsible for:
 
     if condition == FALSE && node.Alternative != nil {
       result = Evaluate(node.Alternative, scope.NewChildScope())
+    }
+
+    return result
+  }
+
+* Reading the AST
+
+  func evalAST(ast *ast.AST, scope *object.Scope) object.Object {
+    var result object.Object
+
+    for _, node := range ast.Nodes {
+      result = Evaluate(node, scope)
+
+      if result != nil && result.Type() == object.TypeError {
+        break
+      }
+
+      switch result := result.(type) {
+      case *object.ReturnValue:
+        return result.Value
+      }
     }
 
     return result
@@ -546,6 +559,10 @@ The evaluator is responsible for:
 - Using the `rune` type, we can make arbitrary characters have values
 
 : Demo on infinity/pi
+: The rune type is an alias for int32, and is used to emphasize that an integer represents a code point.
+: For example, in the string "日abc" the character 日 (code point 26085) is encoded using three bytes, while the ASCII characters a, b and c (code points 97, 98 and 99) only use one
+: Saves additional logic when iterating over characters. Allows expanding valid syntax with UTF-8 symbols.
+: This kind of functionality is very useful if you want to include mathematical language (like Julia)
 
 * Wrapping up
 
