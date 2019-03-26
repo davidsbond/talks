@@ -1,24 +1,19 @@
 I wrote my own programming language and you can too!
 
 26 Mar 2019
-Tags: interpreter, golang, ast, lexer, parser
 
 David Bond
 Software Engineer
 davidsbond93@gmail.com
 http://davidsbond.github.io/
-@DaviiBond
+
 
 * What I made:
 
 A simple, interpreted programming language, written in Go.
 
   func fib(n) {
-    if (n == 1) {
-      return n
-    }
-
-    if (n < 1) {
+    if (n <= 1) {
       return n
     }
 
@@ -32,6 +27,8 @@ A simple, interpreted programming language, written in Go.
 
 : Language works more or less exactly as JavaScript does
 : Supports, async/await, control flow, functions as first class values, comments, built-in functions etc.
+: Talk about why I did this
+
 
 * Why use go?
 
@@ -41,8 +38,13 @@ A simple, interpreted programming language, written in Go.
 - The `rune` type
 
 : Ability to use channels
+: Don't delve into rune types straight away, just mention they're UTF8
 
-* What is an interpreter?
+* What is an interpreted language?
+
+A type of programming language for which most of its implementations execute instructions directly and freely, without previously compiling a program into machine-language instructions.
+
+* What do interpreters look like?
 
 Nearly all interpreters boil down to three layers:
 
@@ -59,16 +61,13 @@ Nearly all interpreters boil down to three layers:
 Main responsibilities of a lexer:
 
 - Read characters from source
-- Convert characters into lexemes
+- Convert characters into lexemes (`==`, `++` etc.)
 - Convert lexemes into tokens
 - Reporting errors
 
 : The lexer (lexical analyzer or tokenizer) is a program that breaks down the input source code into a sequence of lexemes. 
 : A lexeme is a single identifiable sequence of characters (keywords: func, var, for), literals (numbers, strings etc.), identifiers, operators, or punctuation characters ({, (, and .).
 : It reads the input source code character by character, recognizes the lexemes and outputs a sequence of tokens describing the lexemes.
-: A token is an object describing the lexeme. 
-: A token has a type (e.g. Keyword, Identifier, Number, or Operator) and a value (the actual characters of the described lexeme). 
-: A token can also contain other information such as the line and column numbers where the lexeme was encountered in the source code.
 
 * The lexer struct 
 
@@ -85,6 +84,8 @@ Main responsibilities of a lexer:
     column  int
     line    int
   }
+
+: Package bufio implements buffered I/O. It wraps an io.Reader or io.Writer object, creating another object (Reader or Writer) that also implements the interface but provides buffering and some help for textual I/O.
 
 * Reading characters
 
@@ -127,6 +128,24 @@ Main responsibilities of a lexer:
     return
   }
 
+For example, `<=` or `>=`
+
+* The token type
+
+  type (
+    // The Type type is used to differentiate between tokens
+    Type string
+
+    // The Token type represents a collection of lexemes
+    // within the source code.
+    Token struct {
+      Type    Type
+      Literal string
+      Line    int
+      Column  int
+    }
+  )
+
 * Defining tokens
 
   const (
@@ -149,6 +168,10 @@ Main responsibilities of a lexer:
     // STRING is the token type used for opening/closing literal strings.
     STRING = `"`
   )
+
+: A token is an object describing the lexeme. 
+: A token has a type (e.g. Keyword, Identifier, Number, or Operator) and a value (the actual characters of the described lexeme). 
+: A token can also contain other information such as the line and column numbers where the lexeme was encountered in the source code.
 
 * Turning lexemes into tokens
 
@@ -175,19 +198,6 @@ Main responsibilities of a lexer:
     }
   }
 
-* Using runes
-
-  bytes := []byte("日abc") 
-  runes := []rune("日abc")
-
-  fmt.Println(bytes) // [230 151 165 97 98 99]
-  fmt.Println(runes) // [26085 97 98 99]
-
-: The rune type is an alias for int32, and is used to emphasize that an integer represents a code point.
-: For example, in the string "日abc" the character 日 (code point 26085) is encoded using three bytes, while the ASCII characters a, b and c (code points 97, 98 and 99) only use one
-: Saves additional logic when iterating over characters. Allows expanding valid syntax with UTF-8 symbols.
-: This kind of functionality is very useful if you want to include mathematical language (like Julia)
-
 * Lessons from implementing a lexer
 
 - Avoid tokens for whitespace & newlines
@@ -200,9 +210,9 @@ Main responsibilities of a lexer:
 
 The parser is responsible for:
 
-- Building the AST
+- Building the abstract syntax tree (AST)
 - Operator precedence
-- Understanding prefixes, infixes & postfixes
+- Understanding prefixes (!, -), infixes (+, -) & postfixes (++, --)
 - Reporting errors
 
 : An AST is a tree representation of the abstract syntactic structure of source code written in a programming language. 
@@ -210,6 +220,25 @@ The parser is responsible for:
 : The syntax is "abstract" in the sense that it does not represent every detail appearing in the real syntax, but rather just the structural, content-related details.
 : Operator precedence is just BIDMAS for logical/binary operators
 : Infix, Postfix and Prefix notations are three different but equivalent ways of writing expressions.
+
+* Defining types that represent source code
+
+  type (
+    // The IfExpression type represents an if statement in the source code. It consists
+    // of a condition, consequence and optional consequence.
+    // For example:
+    // if (a == 0) { <-- Condition
+    //   return -1   <-- Consequence
+    // } else {
+    //   return a    <-- Alternative
+    // }
+    IfExpression struct {
+      Token       *token.Token
+      Condition   Node
+      Consequence *BlockStatement
+      Alternative *BlockStatement
+    }
+  )
 
 * The parser struct
 
@@ -268,25 +297,6 @@ The parser is responsible for:
     return ast, p.errors
   }
 
-* Defining types that represent source code
-
-  type (
-    // The IfExpression type represents an if statement in the source code. It consists
-    // of a condition, consequence and optional consequence.
-    // For example:
-    // if (a == 0) { <-- Condition
-    //   return -1   <-- Consequence
-    // } else {
-    //   return a    <-- Alternative
-    // }
-    IfExpression struct {
-      Token       *token.Token
-      Condition   Node
-      Consequence *BlockStatement
-      Alternative *BlockStatement
-    }
-  )
-
 * Parsing a variable declaration 
 
   func (p *Parser) parseVarStatement() *ast.VarStatement {
@@ -311,16 +321,15 @@ The parser is responsible for:
     return stmt
   }
 
-* Prefix expressions
-
-- Operators are written before their operands (!, -)
-- Evaluated left-to-right
-
 * Infix expressions
 
 - Operators are written in-between their operands (+, *, ...)
-- Need a defined operator precedence
 - Initially evaluated left-to-right
+- Need a defined operator precedence
+
+: Notation commonly used in arithmetical and logical formulae and statements
+: Infix notation is more difficult to parse by computers than prefix notation (e.g. + 2 2) or postfix notation (e.g. 2 2 +). 
+: However many programming languages use it due to its familiarity. It is more used in arithmetic, e.g. 5 × 6
 
 * Defining precedence
 
@@ -348,10 +357,28 @@ The parser is responsible for:
     }
   )
 
+* Prefix expressions
+
+- Operators are written before their operands (!, -)
+- Operators act on the nearest value to the right
+- Evaluated left-to-right
+- Also known as "Polish notation"
+- Lisp allows prefix expressions like (+ 3 4)
+
+: Although Prefix "operators are evaluated left-to-right", they use values to their right, and if these values themselves involve computations then this changes the order that the operators have to be evaluated in
+: The description "Polish" refers to the nationality of logician Jan Łukasiewicz (yan oo ka sheh witz)
+: Invented in 1924
+
 * Postfix expressions
 
 - Operators are written after their operands (++, --)
 - Evaluated left-to-right
+- Proposed in 1954 by Arthur Burks, Don Warren, and Jesse Wright
+- Also known as "Reverse Polish notation"
+
+: Was independently reinvented by Friedrich L. Bauer and Edsger W. Dijkstra in the early 1960s to reduce computer memory access and utilize the stack to evaluate expressions.
+: Reverse Polish has been found to lead to faster calculations
+: Because reverse Polish calculators do not need expressions to be parenthesized, fewer operations need to be entered to perform typical calculations
 
 * Parsing pre/post/in-fix
 
@@ -452,6 +479,27 @@ The evaluator is responsible for:
 : Using this scope model means you can reuse names of objects from the parent scope without overriding them
 : Literally just a map
 
+* Evaluating expressions
+
+  func ifExpression(node *ast.IfExpression, scope *object.Scope) object.Object {
+    var result object.Object
+    condition := Evaluate(node.Condition, scope)
+
+    if isError(condition) {
+      return condition
+    }
+
+    if condition == TRUE {
+      result = Evaluate(node.Consequence, scope.NewChildScope())
+    }
+
+    if condition == FALSE && node.Alternative != nil {
+      result = Evaluate(node.Alternative, scope.NewChildScope())
+    }
+
+    return result
+  }
+
 * Reading the AST
 
   func evalAST(ast *ast.AST, scope *object.Scope) object.Object {
@@ -473,23 +521,52 @@ The evaluator is responsible for:
     return result
   }
 
-* Evaluating expressions
+* Built-in methods
 
-  func ifExpression(node *ast.IfExpression, scope *object.Scope) object.Object {
-    var result object.Object
-    condition := Evaluate(node.Condition, scope)
+- Identifiers that call logic in the interpreter when validated
+- `len` (Go), `typeOf` (JS), `compile` (Python) etc...
 
-    if isError(condition) {
-      return condition
+  type (
+    // The Builtin type represents a built-in function that can be called
+    // from the source code.
+    Builtin func(args ...Object) Object
+  )
+
+* Implementing len()
+
+  // Len returns the length of a given string or array. Or the number of key
+  // in a hash.
+  func Len(args ...object.Object) object.Object {
+    if len(args) > 1 || len(args) == 0 {
+      return object.Error("built-in 'len' function only takes one argument")
     }
 
-    if condition == TRUE {
-      result = Evaluate(node.Consequence, scope.NewChildScope())
+    switch obj := args[0].(type) {
+    default:
+      return object.Error("built-in 'len' does not support type %s", obj.Type())
+    case *object.Array:
+      return &object.Number{Value: float64(len(obj.Elements))}
+    case *object.String:
+      return &object.Number{Value: float64(len(obj.Value))}
     }
-
-    if condition == FALSE && node.Alternative != nil {
-      result = Evaluate(node.Alternative, scope.NewChildScope())
-    }
-
-    return result
   }
+
+: Demo on len function
+
+* Built-in values
+
+- Using the `rune` type, we can make arbitrary characters have values
+
+: Demo on infinity/pi
+: The rune type is an alias for int32, and is used to emphasize that an integer represents a code point.
+: For example, in the string "日abc" the character 日 (code point 26085) is encoded using three bytes, while the ASCII characters a, b and c (code points 97, 98 and 99) only use one
+: Saves additional logic when iterating over characters. Allows expanding valid syntax with UTF-8 symbols.
+: This kind of functionality is very useful if you want to include mathematical language (like Julia)
+
+* Wrapping up
+
+Valuable links!
+
+- [[http://www.cs.man.ac.uk/~pjj/cs212/fix.html][Infix, Postfix and Prefix]] - Pete Jinks, University of Manchester
+- [[https://interpreterbook.com/][Writing An Interpreter In Go]] - Thorsten Ball
+- [[https://github.com/mmyoji/go-monkey][go-monkey]] - Code for "Writing An Interpreter in Go"
