@@ -156,22 +156,21 @@ Main responsibilities of a lexer:
     l.skipWhitespace()
 
     switch l.current {
-    case '<':
-      tok = token.New(token.LT, token.LT, l.line, l.column)
-    case '>':
-      tok = token.New(token.GT, token.GT, l.line, l.column)
+    case '+':
+      var next rune
+
+      next, err = l.peekRune()
+
+      switch next {
+      case '+':
+        err = l.readRune()
+
+        tok = token.New(token.INC, token.INC, l.line, l.column)
+      default:
+        tok = token.New(token.PLUS, token.PLUS, l.line, l.column)
+      }
     case '*':
       tok = token.New(token.ASTERISK, token.ASTERISK, l.line, l.column)
-    case '%':
-      tok = token.New(token.MOD, token.MOD, l.line, l.column)
-    case '(':
-      tok = token.New(token.LPAREN, token.LPAREN, l.line, l.column)
-    case ')':
-      tok = token.New(token.RPAREN, token.RPAREN, l.line, l.column)
-    case ',':
-      tok = token.New(token.COMMA, token.COMMA, l.line, l.column)
-    case '{':
-      tok = token.New(token.LBRACE, token.LBRACE, l.line, l.column)
     // Add more tokens here
     }
   }
